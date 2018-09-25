@@ -1,2 +1,2 @@
 # knowledge-distillation
-applies knowledge distinnation on vgg net
+A knowledge distillation exercise on vgg net
