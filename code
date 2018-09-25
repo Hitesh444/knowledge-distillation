@@ -1,0 +1,63 @@
+import tensorflow as tf
+import numpy as np
+import keras
+from keras.applications.vgg16 import VGG16
+from keras.preprocessing import image
+from keras.applications.vgg16 import preprocess_input
+from keras.datasets import cifar10
+from keras.layers import Input, Embedding, LSTM, Dense, Lambda
+from keras.models import Model
+from keras.utils import np_utils
+from keras.layers.core import Dense, Dropout, Activation
+from keras.models import Sequential
+from keras.layers import Dense, Merge
+from keras.optimizers import SGD, Adam, RMSprop
+from keras.layers import Lambda, concatenate, Activation
+from keras.losses import categorical_crossentropy as logloss
+from keras.metrics import categorical_accuracy
+import argparse
+temperature=5
+
+def model():
+    model=keras.applications.vgg16.VGG16(include_top=True, weights='imagenet', input_tensor=None, input_shape=(224,224,3), pooling=None, classes=1000)
+    weights=model.layers[-1].get_weights()
+    layer_last=model.layers.pop()
+    #print(np.array(layer_last.get_weights()).shape)
+    print(weights)
+    #model.add()
+    ## usual probabilities
+    #logits = model.layers[-1].output
+    #probabilities = Activation('softmax')(logits)
+
+    ## softed probabilities
+    output=(model.layers[-1].output)
+    layer_new=keras.layers.Dense(1000,activation='sigmoid')(output)
+    #layer_new.set_weights(weights)
+    model=Model(model.input,layer_new)
+    model.layers[-1].set_weights(weights)
+    logits = model.layers[-1].output
+    probabilities = Activation('softmax')(logits)
+    logits_T = Lambda(lambda x: x/temperature)(logits)
+    probabilities_T = Activation('softmax')(logits_T)
+
+    output = concatenate([probabilities, probabilities_T])
+    model = Model(model.input, output)
+    model.summary()
+
+model()  
+
+def knowledge_distillation_loss(y_true, y_pred, lambda_const):
+        # split in
+        #    onehot hard true targets
+        #    logits from teacher model
+        y_true, logits = y_true[:, :nb_classes], y_true[:, nb_classes:]
+
+        # convert logits to soft targets
+        y_soft = K.softmax(logits / temperature)
+
+        # split in
+        #    usual output probabilities
+        #    probabilities made softer with temperature
+        y_pred, y_pred_soft = y_pred[:, :nb_classes], y_pred[:, nb_classes:]
+
+        return lambda_const * logloss(y_true, y_pred) + logloss(y_soft, y_pred_soft)
